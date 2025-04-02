@@ -3,39 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Light Sensor Graph</title>
+    <title>IMU Sensor Data</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <h1>Light Sensor Data</h1>
-    <p>Current Lux Value: <span id="lux-value">Waiting...</span></p>
+    <h1>IMU Sensor Data</h1>
+    <p>X: <span id="x-value">Waiting...</span></p>
+    <p>Y: <span id="y-value">Waiting...</span></p>
+    <p>Z: <span id="z-value">Waiting...</span></p>
     
     <!-- Graph Container -->
-    <canvas id="lightChart"></canvas>
+    <canvas id="imuChart"></canvas>
 
     <script>
-        var socket = io.connect('http://' + document.domain + ':' + location.port);
+        var socket = io.connect('http://127.0.0.1:5000/');
 
         // Chart.js Setup
-        var ctx = document.getElementById('lightChart').getContext('2d');
-        var lightChart = new Chart(ctx, {
+        var ctx = document.getElementById('imuChart').getContext('2d');
+        var imuChart = new Chart(ctx, {
             type: 'line', // Line graph
             data: {
                 labels: [], // Time labels
-                datasets: [{
-                    label: 'Light Sensor (Lux)',
-                    data: [],  // Sensor values
-                    borderColor: 'blue',
-                    backgroundColor: 'rgba(0, 0, 255, 0.1)',
-                    borderWidth: 2
-                }]
+                datasets: [
+                    {
+                        label: 'X Axis',
+                        data: [],
+                        borderColor: 'red',
+                        backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Y Axis',
+                        data: [],
+                        borderColor: 'green',
+                        backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Z Axis',
+                        data: [],
+                        borderColor: 'blue',
+                        backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                        borderWidth: 2
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 scales: {
                     x: { title: { display: true, text: 'Time' } },
-                    y: { title: { display: true, text: 'Lux Value' }, beginAtZero: true }
+                    y: { title: { display: true, text: 'Acceleration' }, beginAtZero: true }
                 }
             }
         });
@@ -44,36 +62,32 @@
             console.log("Connected to WebSocket");
         });
 
-        socket.on('light_update', function(data) {
+        socket.on('imu_update', function(data) {
             console.log("Received:", data);
 
             let now = new Date().toLocaleTimeString();
-            let luxValue = data.light;
+            let xVal = parseFloat(data.x);
+            let yVal = parseFloat(data.y);
+            let zVal = parseFloat(data.z);
 
-            // Update the displayed value
-            if (isNaN(parseFloat(luxValue))) {
-                luxValue = 0;  // If luxValue is not a float (like "heartbeat"), set to 0
-                document.getElementById("lux-value").innerText = "No valid data (0)";
-    lightChart.update();
-          
-            } else {
-            document.getElementById("lux-value").innerText = luxValue;
+            document.getElementById("x-value").innerText = xVal;
+            document.getElementById("y-value").innerText = yVal;
+            document.getElementById("z-value").innerText = zVal;
 
-            // Update the chart only if the value is a number
-            if (!isNaN(luxValue)) {
-                lightChart.data.labels.push(now);
-                lightChart.data.datasets[0].data.push(parseFloat(luxValue));
+            imuChart.data.labels.push(now);
+            imuChart.data.datasets[0].data.push(xVal);
+            imuChart.data.datasets[1].data.push(yVal);
+            imuChart.data.datasets[2].data.push(zVal);
 
-            // Keep only the last 20 readings
-            if (lightChart.data.labels.length > 60) {
-                lightChart.data.labels.shift();
-                lightChart.data.datasets[0].data.shift();
+            // Keep only the last 60 readings
+            if (imuChart.data.labels.length > 60) {
+                imuChart.data.labels.shift();
+                imuChart.data.datasets[0].data.shift();
+                imuChart.data.datasets[1].data.shift();
+                imuChart.data.datasets[2].data.shift();
             }
-            lightChart.update();
 
-        }
-    }
-
+            imuChart.update();
         });
 
         socket.on('disconnect', function() {
