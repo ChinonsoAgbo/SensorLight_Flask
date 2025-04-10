@@ -58,10 +58,11 @@ def tcp_data_receiver():
 
                     try:
                         json_data = json.loads(data)
+                        timestamp = time.strftime("%H:%M:%S", time.localtime())
 
-                        if all(k in json_data for k in ["timestamp","x", "y", "z"]):
+                        if all(k in json_data for k in ["x", "y", "z"]):
                             imu_data = {
-                                "timestamp": json_data["timestamp"],
+                                "timestamp": timestamp,
                                 "type": "IMU",
                                 "x": json_data["x"],
                                 "y": json_data["y"],
@@ -71,7 +72,7 @@ def tcp_data_receiver():
 
                             # Save to buffer
                             with buffer_lock:
-                                data_buffer.append([json_data["timestamp"], json_data["x"], json_data["y"], json_data["z"]])
+                                data_buffer.append([timestamp, json_data["x"], json_data["y"], json_data["z"]])
 
                     except json.JSONDecodeError:
                         print("⚠️ Invalid JSON data received")

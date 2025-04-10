@@ -38,27 +38,28 @@ void setup() {
 
 void loop() {
   static float x, y, z;
-
+  
   if (IMU.accelerationAvailable()) {
     IMU.readAcceleration(x, y, z);
   }
 
-  // if (millis() - previousMillis >= sendInterval) {
-  //   previousMillis = millis();
+  if (client.connected()) {
+    StaticJsonDocument<128> doc;
     
-    if (client.connected()) {
-      StaticJsonDocument<128> doc;
-      doc["x"] = x;
-      doc["y"] = y;
-      doc["z"] = z;
-      char jsonBuffer[128];
-      serializeJson(doc, jsonBuffer);
-      
-      client.println(jsonBuffer);  
-      Serial.println("Sent IMU data");
-    } else {
-      Serial.println("Connection lost. Reconnecting...");
-      client.connect(server, port);
-    }
-  // }
+    // Get the current timestamp in milliseconds since boot
+    unsigned long timestamp = millis();
+    doc["timestamp"] = timestamp;  // Add timestamp from Arduino
+    doc["x"] = x;
+    doc["y"] = y;
+    doc["z"] = z;
+    
+    char jsonBuffer[128];
+    serializeJson(doc, jsonBuffer);
+    
+    client.println(jsonBuffer);  
+    Serial.println(jsonBuffer);
+  } else {
+    Serial.println("Connection lost. Reconnecting...");
+    client.connect(server, port);
+  }
 }

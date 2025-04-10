@@ -8,41 +8,40 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <h1>IMU Sensor Data (Accelerometer)</h1>
-    <p>Timestamp: <span id="timestamp">Waiting...</span></p>
+    <h1>IMU Sensor Data</h1>
     <p>X: <span id="x-value">Waiting...</span></p>
     <p>Y: <span id="y-value">Waiting...</span></p>
     <p>Z: <span id="z-value">Waiting...</span></p>
-
+    
     <!-- Graph Container -->
     <canvas id="imuChart"></canvas>
 
     <script>
-        var socket = io.connect('http://' + document.domain + ':' + location.port);
+        var socket = io.connect('http://127.0.0.1:5000/');
 
         // Chart.js Setup
         var ctx = document.getElementById('imuChart').getContext('2d');
         var imuChart = new Chart(ctx, {
-            type: 'line',
+            type: 'line', // Line graph
             data: {
                 labels: [], // Time labels
                 datasets: [
                     {
-                        label: 'X-Axis Acceleration',
+                        label: 'X Axis',
                         data: [],
                         borderColor: 'red',
                         backgroundColor: 'rgba(255, 0, 0, 0.1)',
                         borderWidth: 2
                     },
                     {
-                        label: 'Y-Axis Acceleration',
+                        label: 'Y Axis',
                         data: [],
                         borderColor: 'green',
                         backgroundColor: 'rgba(0, 255, 0, 0.1)',
                         borderWidth: 2
                     },
                     {
-                        label: 'Z-Axis Acceleration',
+                        label: 'Z Axis',
                         data: [],
                         borderColor: 'blue',
                         backgroundColor: 'rgba(0, 0, 255, 0.1)',
@@ -54,7 +53,7 @@
                 responsive: true,
                 scales: {
                     x: { title: { display: true, text: 'Time' } },
-                    y: { title: { display: true, text: 'Acceleration (m/s²)' }, beginAtZero: false }
+                    y: { title: { display: true, text: 'Acceleration' }, beginAtZero: true }
                 }
             }
         });
@@ -66,26 +65,22 @@
         socket.on('imu_update', function(data) {
             console.log("Received:", data);
 
-            let timestamp = parseInt(data.timestamp);
-            
-            let x = parseFloat(data.x);
-            let y = parseFloat(data.y);
-            let z = parseFloat(data.z);
+            let now = new Date().toLocaleTimeString();
+            let xVal = parseFloat(data.x);
+            let yVal = parseFloat(data.y);
+            let zVal = parseFloat(data.z);
 
-            // Update text values
-            document.getElementById("timestamp").innerText = timestamp;
-            document.getElementById("x-value").innerText = x.toFixed(2);
-            document.getElementById("y-value").innerText = y.toFixed(2);
-            document.getElementById("z-value").innerText = z.toFixed(2);
+            document.getElementById("x-value").innerText = xVal;
+            document.getElementById("y-value").innerText = yVal;
+            document.getElementById("z-value").innerText = zVal;
 
-            // Update Chart
-            imuChart.data.labels.push(timestamp);
-            imuChart.data.datasets[0].data.push(x);
-            imuChart.data.datasets[1].data.push(y);
-            imuChart.data.datasets[2].data.push(z);
+            imuChart.data.labels.push(now);
+            imuChart.data.datasets[0].data.push(xVal);
+            imuChart.data.datasets[1].data.push(yVal);
+            imuChart.data.datasets[2].data.push(zVal);
 
-            // Keep only the last 20 readings
-            if (imuChart.data.labels.length > 20) {
+            // Keep only the last 60 readings
+            if (imuChart.data.labels.length > 60) {
                 imuChart.data.labels.shift();
                 imuChart.data.datasets[0].data.shift();
                 imuChart.data.datasets[1].data.shift();
