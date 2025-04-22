@@ -1,8 +1,8 @@
-import socket
 import json
 import threading
 import time
 import csv
+import paho.mqtt.client as mqtt
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 
@@ -10,89 +10,68 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-TCP_HOST = '0.0.0.0'
-TCP_PORT = 5050
-CONN_TIMEOUT = 10
+# MQTT configuration
+# MQTT_BROKER = '172.20.10.14'  # Phone IP or hostname
+MQTT_BROKER = '192.168.0.100'  # Router IP or hostname
+MQTT_PORT = 1883              # Port number
+MQTT_TOPIC = "arduino/imuDaten"  # Topic to subscribe to
 
 exit_flag = False
 data_buffer = []  # Stores data temporarily
 buffer_lock = threading.Lock()
 
-def create_tcp_server():
-    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    tcp_socket.bind((TCP_HOST, TCP_PORT))
-    tcp_socket.listen(1)
-    print(f"✅ TCP Listening on {TCP_HOST}:{TCP_PORT}")
-    return tcp_socket
+# MQTT Callbacks
+def on_connect(client, userdata, flags, rc):
+    print(f"✅ Connected to MQTT Broker with result code {rc}")
+   # print(f"Subscribing to topic: {MQTT_TOPIC}")
+    client.subscribe(MQTT_TOPIC, qos=2)  # Subscribe to the topic
 
-tcp_socket = create_tcp_server()
+def on_message(client, userdata, msg):
+    #print(f"{msg.topic}: {msg.payload.decode()}")
+    payload = msg.payload.decode("utf-8")
+    try:
+        json_data = json.loads(payload)
+        #print(f" {json_data}")  
+        if "imuData" in json_data:
+            imu_data = {
+                "acceleration": json_data["imuData"]["accelerationInGs"],
+                "rotation": json_data["imuData"]["rotationInDegSec"],
+                "timestampMillis": json_data["imuData"]["timestampMillis"]
+            }
+            #print(f"📡 MQTT Received: {imu_data}")
 
-def tcp_data_receiver():
-    global exit_flag
-    conn = None
-    recv_buffer = ""
+            # Send data to the frontend via WebSocket
+            socketio.emit('imu_update', imu_data)
 
-    while not exit_flag:
-        try:
-            if conn is None:
-                print("🔄 Waiting for Arduino to connect...")
-                conn, addr = tcp_socket.accept()
-                conn.settimeout(None)
-                print(f"✅ Arduino Connected: {addr}")
+            # Add data to the buffer
+            with buffer_lock:
+                data_buffer.append([
+                    json_data["imuData"]["accelerationInGs"]["x"],
+                    json_data["imuData"]["accelerationInGs"]["y"],
+                    json_data["imuData"]["accelerationInGs"]["z"],
+                    # json_data["imuData"]["rotationInDegSec"]["x"],
+                    # json_data["imuData"]["rotationInDegSec"]["y"],
+                    json_data["imuData"]["rotationInDegSec"]["z"],
+                    json_data["imuData"]["timestampMillis"]
+                ])
 
-            while not exit_flag:
-                chunk = conn.recv(1024).decode('utf-8')
-                if not chunk:
-                    print("⚠️ Connection closed by client")
-                    conn.close()
-                    conn = None
-                    break
+        else:
+            print("⚠️ Incomplete JSON data received")
+    except json.JSONDecodeError:
+        print("❌ Invalid JSON data received")
 
-                recv_buffer += chunk
-                while '\n' in recv_buffer:
-                    line, recv_buffer = recv_buffer.split('\n', 1)
-                    line = line.strip()
-                    if line:
-                        print(f"📡 TCP Received: {line}")
-                        try:
-                            json_data = json.loads(line)
+ # MQTT setup
+mqtt_client = mqtt.Client()
+mqtt_client.on_connect = on_connect
+mqtt_client.on_message = on_message
+def start_mqtt_client():
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    mqtt_client.loop_start()  # Start the MQTT client loop to listen for incoming messages
 
-                            if "imuData" in json_data:
-                                imu_data = {
-                                    "acceleration": json_data["imuData"]["accelerationInGs"],
-                                    "rotation": json_data["imuData"]["rotationInDegSec"],
-                                    "timestampMillis": json_data["imuData"]["timestampMillis"]
-                                }
+# Start the MQTT client in a separate thread
+mqtt_thread = threading.Thread(target=start_mqtt_client, daemon=True)
+mqtt_thread.start()
 
-                                socketio.emit('imu_update', imu_data)  # send to frontend
-
-                                with buffer_lock:
-                                    data_buffer.append([
-                                        json_data["imuData"]["accelerationInGs"]["x"],
-                                        json_data["imuData"]["accelerationInGs"]["y"],
-                                        json_data["imuData"]["accelerationInGs"]["z"],
-                                        # json_data["imuData"]["rotationInDegSec"]["x"],
-                                        # json_data["imuData"]["rotationInDegSec"]["y"],
-                                        json_data["imuData"]["rotationInDegSec"]["z"],
-                                        json_data["imuData"]["timestampMillis"]
-                                    ])
-                            else:
-                                print("⚠️ Incomplete JSON data received")
-                        except json.JSONDecodeError:
-                            print("❌ Invalid JSON data received")
-
-        except ConnectionResetError:
-            print("🚨 Connection Reset! Waiting for Arduino to reconnect...")
-            if conn:
-                conn.close()
-            conn = None
-        except Exception as e:
-            print(f"🔥 TCP Error: {e}")
-            time.sleep(1)
-
-tcp_thread = threading.Thread(target=tcp_data_receiver, daemon=True)
-tcp_thread.start()
 
 def save_data_to_csv():
     global data_buffer
@@ -124,4 +103,6 @@ def disconnect():
     print('❌ Client disconnected from WebSocket')
 
 if __name__ == '__main__':
+    print("🌐 Starting Flask server...")
+    print("🔗 Open http://localhost:5000 or http://127.0.0.1:5000 in your browser")
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

@@ -66,24 +66,23 @@
         socket.on('imu_update', function(data) {
             console.log("Received:", data);
 
-            let timestamp = parseInt(data.timestamp);
-            
-            let x = parseFloat(data.x);
-            let y = parseFloat(data.y);
-            let z = parseFloat(data.z);
-
+            let timestamp = parseInt(data.timestampMillis);
+            let x = parseFloat(data.acceleration.x)|| 0;
+            let y = parseFloat(data.acceleration.y)|| 0;
+            let z = parseFloat(data.acceleration.z)|| 0;
+        
             // Update text values
             document.getElementById("timestamp").innerText = timestamp;
             document.getElementById("x-value").innerText = x.toFixed(2);
             document.getElementById("y-value").innerText = y.toFixed(2);
             document.getElementById("z-value").innerText = z.toFixed(2);
-
+        
             // Update Chart
             imuChart.data.labels.push(timestamp);
             imuChart.data.datasets[0].data.push(x);
             imuChart.data.datasets[1].data.push(y);
             imuChart.data.datasets[2].data.push(z);
-
+        
             // Keep only the last 20 readings
             if (imuChart.data.labels.length > 20) {
                 imuChart.data.labels.shift();
@@ -91,7 +90,7 @@
                 imuChart.data.datasets[1].data.shift();
                 imuChart.data.datasets[2].data.shift();
             }
-
+        
             imuChart.update();
         });
 
