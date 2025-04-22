@@ -11,7 +11,7 @@ const int port = 5050;
 WiFiClient client;
 unsigned long lastSendTime = 0;
 unsigned long previousMillis = 0;
-const int sendInterval = 10; // Send data every 250ms
+//const int sendInterval = 10; // Send data every 250ms
 void setup() {
   Serial.begin(115200);
   Wire.begin();
