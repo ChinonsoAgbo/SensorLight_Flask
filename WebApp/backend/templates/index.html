@@ -84,7 +84,7 @@
             imuChart.data.datasets[2].data.push(z);
         
             // Keep only the last 20 readings
-            if (imuChart.data.labels.length > 20) {
+            if (imuChart.data.labels.length > 200) {
                 imuChart.data.labels.shift();
                 imuChart.data.datasets[0].data.shift();
                 imuChart.data.datasets[1].data.shift();

@@ -11,8 +11,8 @@ app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # MQTT configuration
-# MQTT_BROKER = '172.20.10.14'  # Phone IP or hostname
-MQTT_BROKER = '192.168.0.100'  # Router IP or hostname
+MQTT_BROKER = '172.20.10.14'  # Phone IP or hostname
+# MQTT_BROKER = '192.168.0.100'  # Router IP or hostname
 MQTT_PORT = 1883              # Port number
 MQTT_TOPIC = "arduino/imuDaten"  # Topic to subscribe to
 
@@ -41,7 +41,7 @@ def on_message(client, userdata, msg):
             #print(f"📡 MQTT Received: {imu_data}")
 
             # Send data to the frontend via WebSocket
-            socketio.emit('imu_update', imu_data)
+            socketio.emit('imu_update', imu_data) # publish to mqtt 
 
             # Add data to the buffer
             with buffer_lock:
