@@ -24,22 +24,26 @@
 #elif defined(ARDUINO_UNOR4_WIFI)
 #include <WiFiS3.h>
 #endif
+#include <stdint.h>  // Only needed on some platforms
 
 #include <Wire.h>
 #include "SparkFun_BMI270_Arduino_Library.h"
 #include <ArduinoJson.h>
 
 ///////please enter your sensitive data in the Secret tab/arduino_secrets.h
-// char ssid[] = "SDD_Demo";    // your network SSID (name)
-// char pass[] = "Bobbycar";    // your network password (use for WPA, or use as key for WEP)
 
 // phone network
-char ssid[] = "AgboIphone";   // your network SSID (name)
-char pass[] = "chinonso39?";  // your network password (use for WPA, or use as key for WEP)
+// char ssid[] = "AgboIphone";   // your network SSID (name)
+// char pass[] = "chinonso39?";  // your network password (use for WPA, or use as key for WEP)
+
+char ssid[] = "SDD_Demo";    // your network SSID (name)
+char pass[] = "Bobbycar";    // your network password (use for WPA, or use as key for WEP)
 
 
-const char broker[] = "172.20.10.14";  // handy network broker
-// const char broker[] = "192.168.0.100"; // router network broker
+// const char broker[] = "172.20.10.14";  // handy network broker
+const char broker[] = "192.168.0.100"; // router network broker
+// const char broker[] = "0.0.0.0"; // router network broker
+
 
 // To connect with SSL/TLS:
 // 1) Change WiFiClient to WiFiSSLClient.
@@ -60,12 +64,10 @@ BMI270 imu;
 uint8_t i2cAddress = BMI2_I2C_PRIM_ADDR;  // 0x68
 //uint8_t i2cAddress = BMI2_I2C_SEC_ADDR; // 0x69
 
-const size_t jsonDocumentCapacity = 256;
-StaticJsonDocument<jsonDocumentCapacity> jsonDocument;
 
-// uint8_t acc_odr = BMI2_ACC_ODR_400HZ;
-// uint8_t gyro_odr = BMI2_GYR_ODR_400HZ;
-// uint8_t gyr_Range = BMI2_GYR_RANGE_250;
+uint8_t acc_odr = BMI2_ACC_ODR_400HZ;
+uint8_t gyro_odr = BMI2_GYR_ODR_400HZ;
+uint8_t gyr_Range = BMI2_GYR_RANGE_250;
 
 
 void setup() {
@@ -90,8 +92,8 @@ void setup() {
   }
   Serial.println("BMI270 connected!");
 
-  // imu.setAccelODR(acc_odr);
-  // imu.setGyroODR(gyro_odr);
+  imu.setAccelODR(acc_odr);
+  imu.setGyroODR(gyro_odr);
   // imu.convertRawToDegSecScalar(gyr_Range);
   // Wifi connection
   // attempt to connect to WiFi network:
@@ -111,56 +113,49 @@ void setup() {
   // mqttClient.setId("clientId");
 
   // You can provide a username and password for authentication
-  mqttClient.setUsernamePassword("chinonso", "passingBroker39?");
+  // mqttClient.setUsernamePassword("chinonso", "passingBroker39?");
 
   Serial.print("Attempting to connect to the MQTT broker: ");
   Serial.println(broker);
 
-  if (!mqttClient.connect(broker, port)) {
+  // if (!mqttClient.connect(broker, port)) {
+  //   Serial.print("MQTT connection failed! Error code = ");
+  //   Serial.println(mqttClient.connectError());
+
+  //   while (1)
+  //     ;
+  // }
+   while (!mqttClient.connect(broker, port)) {
     Serial.print("MQTT connection failed! Error code = ");
     Serial.println(mqttClient.connectError());
-
-    while (1)
-      ;
+    Serial.println("Retrying in 5 seconds...");
+    delay(5000);  // Wait 5 seconds before retrying
   }
 
   Serial.println("You're connected to the MQTT broker!");
   Serial.println();
 }
 
-const unsigned long interval = 10; // For a target of 100 Hz (every 10 milliseconds)
-unsigned long previousMillis = 0;
+uint64_t counter = 1;
 
 void loop() {
   mqttClient.poll();
-  unsigned long currentMillis = millis();
+  // const unsigned long time  = millis();
+  for (int i = 0; i < counter; i++) {
+    imu.getSensorData();  // take  up to 3 milisec
+    // Format the message
+    // String msg = "t:" + String(millis()) + "; acc:" + String(imu.data.accelX, 6) + "," + String(imu.data.accelY, 6) + "," + String(imu.data.accelZ, 6) + "; gyro:" + String(imu.data.gyroZ, 6);
+    String msg = "t:" + String(millis()) + "; acc:" + imu.data.accelX + "," + imu.data.accelY + "," + imu.data.accelZ + "; gyro:" +imu.data.gyroZ;
 
-  if (currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis;
+    // Send over MQTT
+    mqttClient.beginMessage(topic);
+    mqttClient.print(msg);
+    mqttClient.endMessage();
 
-    if (imu.getSensorData() == BMI2_OK) {
-      jsonDocument.clear();
-      JsonObject imuData = jsonDocument.createNestedObject("imuData");
-      JsonObject accelerationInGs = imuData.createNestedObject("accelerationInGs");
-      accelerationInGs["x"] = imu.data.accelX;
-      accelerationInGs["y"] = imu.data.accelY;
-      accelerationInGs["z"] = imu.data.accelZ;
-      JsonObject rotationInDegSec = imuData.createNestedObject("rotationInDegSec");
-      rotationInDegSec["z"] = imu.data.gyroZ;
-      imuData["timestampMillis"] = currentMillis;
-
-      char jsonBuffer[jsonDocumentCapacity + 1];
-      serializeJson(jsonDocument, jsonBuffer);
-
-      // Serial.println(topic); // Keep these for debugging if needed
-      Serial.println(jsonBuffer);
-
-      mqttClient.beginMessage(topic, true, 2);
-      mqttClient.print(jsonBuffer);
-      mqttClient.endMessage();
-
-    } else {
-      Serial.println("Error reading sensor data!"); // Handle potential sensor read errors
-    }
+    // Print to Serial (optional for debugging)
+    //Serial.println(msg);
+    counter++;
   }
 }
+
+

@@ -11,8 +11,8 @@ app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # MQTT configuration
-MQTT_BROKER = '172.20.10.14'  # Phone IP or hostname
-# MQTT_BROKER = '192.168.0.100'  # Router IP or hostname
+# MQTT_BROKER = '172.20.10.14'  # Phone IP or hostname
+MQTT_BROKER = '192.168.0.100'  # Router IP or hostname
 MQTT_PORT = 1883              # Port number
 MQTT_TOPIC = "arduino/imuDaten"  # Topic to subscribe to
 
@@ -24,41 +24,46 @@ buffer_lock = threading.Lock()
 def on_connect(client, userdata, flags, rc):
     print(f"✅ Connected to MQTT Broker with result code {rc}")
    # print(f"Subscribing to topic: {MQTT_TOPIC}")
-    client.subscribe(MQTT_TOPIC, qos=2)  # Subscribe to the topic
+    client.subscribe(MQTT_TOPIC)  # Subscribe to the topic
 
 def on_message(client, userdata, msg):
     #print(f"{msg.topic}: {msg.payload.decode()}")
     payload = msg.payload.decode("utf-8")
     try:
-        json_data = json.loads(payload)
         #print(f" {json_data}")  
-        if "imuData" in json_data:
-            imu_data = {
-                "acceleration": json_data["imuData"]["accelerationInGs"],
-                "rotation": json_data["imuData"]["rotationInDegSec"],
-                "timestampMillis": json_data["imuData"]["timestampMillis"]
-            }
-            #print(f"📡 MQTT Received: {imu_data}")
+        # Example payload: "t:123456; acc:0.12,0.34,0.56; gyro:-0.78"
+        parts = payload.split(";")
+        timestamp = float(parts[0].split(":")[1].strip())
+        
+        acc_values = parts[1].split(":")[1].strip().split(",")
+        acc_x = float(acc_values[0])
+        acc_y = float(acc_values[1])
+        acc_z = float(acc_values[2]) 
 
-            # Send data to the frontend via WebSocket
-            socketio.emit('imu_update', imu_data) # publish to mqtt 
+        gyro_z = float(parts[2].split(":")[1])
 
-            # Add data to the buffer
-            with buffer_lock:
-                data_buffer.append([
-                    json_data["imuData"]["accelerationInGs"]["x"],
-                    json_data["imuData"]["accelerationInGs"]["y"],
-                    json_data["imuData"]["accelerationInGs"]["z"],
-                    # json_data["imuData"]["rotationInDegSec"]["x"],
-                    # json_data["imuData"]["rotationInDegSec"]["y"],
-                    json_data["imuData"]["rotationInDegSec"]["z"],
-                    json_data["imuData"]["timestampMillis"]
-                ])
+        imu_data = { 
+            "acceleration": {
+                "x": acc_x,
+                "y": acc_y,
+                "z": acc_z
+            },
+            "rotation": {
+                "z": gyro_z
+            },
+            "timestampMillis": int(timestamp)
+        }
 
-        else:
-            print("⚠️ Incomplete JSON data received")
-    except json.JSONDecodeError:
-        print("❌ Invalid JSON data received")
+        print(f"IMU Data: {imu_data}"    )
+        # Send data to the frontend via WebSocket
+        socketio.emit('imu_update', imu_data) # send to frontend web socket 
+
+        # Add data to the buffer
+        with buffer_lock:
+            data_buffer.append([acc_x, acc_y, acc_z, gyro_z, timestamp])
+    except Exception as e:
+        print(f"❌ Failed to parse IMU data: {payload}")
+        print(f"⚠️ Error: {e}")
 
  # MQTT setup
 mqtt_client = mqtt.Client()
