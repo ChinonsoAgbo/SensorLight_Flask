@@ -54,7 +54,7 @@ const char broker[] = "192.168.0.100"; // router network broker
 WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
 
-int port = 1883;
+int port = 1884;
 const char topic[] = "arduino/imuDaten";
 
 
@@ -145,7 +145,7 @@ void loop() {
     imu.getSensorData();  // take  up to 3 milisec
     // Format the message
     // String msg = "t:" + String(millis()) + "; acc:" + String(imu.data.accelX, 6) + "," + String(imu.data.accelY, 6) + "," + String(imu.data.accelZ, 6) + "; gyro:" + String(imu.data.gyroZ, 6);
-    String msg = "t:" + String(millis()) + "; acc:" + imu.data.accelX + "," + imu.data.accelY + "," + imu.data.accelZ + "; gyro:" +imu.data.gyroZ;
+    String msg = "t:" + String(millis()) + "; acc:" + String(imu.data.accelX, 3) + "," + String(imu.data.accelY, 3)+ "," + String(imu.data.accelZ,3) + "; gyro:" + String(imu.data.gyroZ,3);
 
     // Send over MQTT
     mqttClient.beginMessage(topic);

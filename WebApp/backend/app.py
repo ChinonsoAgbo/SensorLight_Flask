@@ -13,7 +13,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # MQTT configuration
 # MQTT_BROKER = '172.20.10.14'  # Phone IP or hostname
 MQTT_BROKER = '192.168.0.100'  # Router IP or hostname
-MQTT_PORT = 1883              # Port number
+MQTT_PORT = 1884              # Port number
 MQTT_TOPIC = "arduino/imuDaten"  # Topic to subscribe to
 
 exit_flag = False
