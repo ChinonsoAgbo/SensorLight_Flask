@@ -41,7 +41,7 @@ char pass[] = "Bobbycar";    // your network password (use for WPA, or use as ke
 
 
 // const char broker[] = "172.20.10.14";  // handy network broker
-const char broker[] = "192.168.0.100"; // router network broker
+const char broker[] = "192.168.0.101"; // router network broker
 // const char broker[] = "0.0.0.0"; // router network broker
 
 
