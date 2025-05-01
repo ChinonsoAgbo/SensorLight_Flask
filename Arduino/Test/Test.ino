@@ -25,23 +25,25 @@
 #include <WiFiS3.h>
 #endif
 #include <stdint.h>  // Only needed on some platforms
+#include <Async_Operations.h>
+
 
 #include <Wire.h>
 #include "SparkFun_BMI270_Arduino_Library.h"
 #include <ArduinoJson.h>
-
+#include <CircularBuffer.h>
 ///////please enter your sensitive data in the Secret tab/arduino_secrets.h
 
 // phone network
 // char ssid[] = "AgboIphone";   // your network SSID (name)
 // char pass[] = "chinonso39?";  // your network password (use for WPA, or use as key for WEP)
 
-char ssid[] = "SDD_Demo";    // your network SSID (name)
-char pass[] = "Bobbycar";    // your network password (use for WPA, or use as key for WEP)
+char ssid[] = "SDD_Demo";  // your network SSID (name)
+char pass[] = "Bobbycar";  // your network password (use for WPA, or use as key for WEP)
 
 
 // const char broker[] = "172.20.10.14";  // handy network broker
-const char broker[] = "192.168.0.100"; // router network broker
+const char broker[] = "192.168.0.100";  // router network broker
 // const char broker[] = "0.0.0.0"; // router network broker
 
 
@@ -118,14 +120,7 @@ void setup() {
   Serial.print("Attempting to connect to the MQTT broker: ");
   Serial.println(broker);
 
-  // if (!mqttClient.connect(broker, port)) {
-  //   Serial.print("MQTT connection failed! Error code = ");
-  //   Serial.println(mqttClient.connectError());
-
-  //   while (1)
-  //     ;
-  // }
-   while (!mqttClient.connect(broker, port)) {
+  while (!mqttClient.connect(broker, port)) {
     Serial.print("MQTT connection failed! Error code = ");
     Serial.println(mqttClient.connectError());
     Serial.println("Retrying in 1 seconds...");
@@ -136,28 +131,64 @@ void setup() {
   Serial.println();
 }
 
-uint64_t counter = 1;
 
+CircularBuffer<String, 100> messageQueue;
+
+const unsigned long sensorInterval = 3;
+const unsigned long mqttSendInterval = 1;  // only send 1 msg per X ms
+unsigned long lastSensorRead = 0;
+unsigned long lastMQTTSend = 0;
 void loop() {
   mqttClient.poll();
-  
-  // const unsigned long time  = millis();
-  for (int i = 0; i < counter; i++) {
 
-    imu.getSensorData();  // take  up to 3 milisec
-    // Format the message
-    String msg = "t:" + String(millis()) + "; acc:" + String(imu.data.accelX, 3) + "," + String(imu.data.accelY, 3)+ "," + String(imu.data.accelZ,3) + "; gyro:" + String(imu.data.gyroZ,3);
-    
+    imu.getSensorData();
+    unsigned long timestamp = millis();
 
-    // Send over MQTT
-    mqttClient.beginMessage(topic);
-    mqttClient.print(msg);
-    mqttClient.endMessage();
+    String msg = "t:" + String(timestamp) + "; acc:" + String(imu.data.accelX, 3) + "," + String(imu.data.accelY, 3) + "," + String(imu.data.accelZ, 3) + "; gyro:" + String(imu.data.gyroZ, 3);
 
-    // Print to Serial (optional for debugging)
-    //Serial.println(msg);
-    counter++;
+
+  // Push to message queue (ensures it's not empty)
+  if (!messageQueue.isFull()) {
+    messageQueue.push(msg);
+  } else {
+    messageQueue.shift();         // Drop oldest message if full
+    messageQueue.push(msg);       // Always push new message
   }
+  Serial.println(millis());
+  sendMQTTAsyncStep();
+  Serial.println(millis());
 }
 
+enum SendState { IDLE,
+                 START,
+                 PRINT,
+                 END };
+SendState sendState = IDLE;
+String currentMsg;
 
+void sendMQTTAsyncStep() {
+  switch (sendState) {
+    case IDLE:
+      if (!messageQueue.isEmpty() && mqttClient.connected()) {
+        currentMsg = messageQueue.shift();
+        sendState = START;
+      }
+      break;
+
+    case START:
+      mqttClient.beginMessage(topic);
+      sendState = PRINT;
+      break;
+
+    case PRINT:
+      mqttClient.print(currentMsg);
+      sendState = END;
+      break;
+
+    case END:
+      mqttClient.endMessage();
+      Serial.println("Sent: " + currentMsg);
+      sendState = IDLE;
+      break;
+  }
+}
