@@ -11,7 +11,7 @@ uint8_t gyro_odr = BMI2_GYR_ODR_400HZ;
 uint8_t gyr_Range = BMI2_GYR_RANGE_250;
 
 void setup () {
-  Serial.begin(230400);
+  Serial.begin(2000000);
   Serial.println("BMI270 200Hz usb ");
 
   while (!Serial) {

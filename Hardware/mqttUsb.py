@@ -5,8 +5,8 @@ import time
 import paho.mqtt.client as mqtt
 
 # Setup Serial
-ser = serial.Serial('COM4', 230400)
-
+#ser = serial.Serial('COM4', 230400)
+ser = serial.Serial('/dev/ttyACM0', 2000000)
 # Thread-safe Queue
 data_queue = queue.Queue()
 
