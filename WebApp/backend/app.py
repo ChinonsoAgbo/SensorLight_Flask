@@ -18,7 +18,8 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # MQTT configuration
-MQTT_BROKER = '192.168.0.100'
+MQTT_BROKER = '127.0.0.1'
+#MQTT_BROKER = '192.168.0.100'
 MQTT_PORT = 1884
 MQTT_TOPIC = "arduino/imuDaten"
 

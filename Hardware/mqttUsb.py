@@ -13,7 +13,7 @@ data_queue = queue.Queue()
 # Setup MQTT
 mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 mqtt_client.username_pw_set("SSD_Demo", "Bobbycar")
-mqtt_client.connect("192.168.0.100", 1884, 60)
+mqtt_client.connect("127.0.0.1", 1884, 60)
 
 # Read data from Serial (Producer)
 def serial_reader():
