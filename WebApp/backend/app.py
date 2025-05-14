@@ -22,8 +22,8 @@ last_save_time = time.time()  # initialize
 SAVE_INTERVAL = 60  # seconds (3 minutes)
 
 # MQTT Callbacks
-def on_connect(client, userdata, flags, rc):
-    print(f"✅ Connected to MQTT Broker with result code {rc}")
+def on_connect(client, userdata, flags, reason_code, properties):
+    print(f"✅ Connected to MQTT Broker with result code {reason_code}")
    # print(f"Subscribing to topic: {MQTT_TOPIC}")
     client.subscribe(MQTT_TOPIC)  # Subscribe to the topic
 
@@ -77,7 +77,8 @@ def on_message(client, userdata, msg):
         print(f"⚠️ Error: {e}")
 
  # MQTT setup
-mqtt_client = mqtt.Client()
+mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+mqtt_client.username_pw_set("SSD_Demo","Bobbycar")
 mqtt_client.on_connect = on_connect
 mqtt_client.on_message = on_message
 def start_mqtt_client():
