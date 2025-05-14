@@ -4,16 +4,37 @@ import queue
 import time
 import paho.mqtt.client as mqtt
 
-# Setup Serial
-#ser = serial.Serial('COM4', 230400)
-ser = serial.Serial('/dev/ttyACM0', 2000000)
+# Function to establish Serial connection with retry mechanism
+def get_serial_connection():
+    while True:
+        try:
+            ser = serial.Serial('/dev/ttyACM0', 2000000)
+            #ser = serial.Serial('COM3', 2000000)
+            print("Serial connected")
+            return ser
+        except serial.SerialException as e:
+            print(f"Serial connection failed: {e}. Retrying in 3 seconds...")
+            time.sleep(3)
+
+# Function to establish MQTT connection with retry mechanism
+def get_mqtt_connection():
+    mqtt_client = mqtt.Client()
+    mqtt_client.username_pw_set("SSD_Demo", "Bobbycar")
+    while True:
+        try:
+            mqtt_client.connect("127.0.0.1", 1884, 60)
+            print("MQTT connected")
+            return mqtt_client
+        except Exception as e:
+            print(f"MQTT connection failed: {e}. Retrying in 3 seconds...")
+            time.sleep(3)
+
 # Thread-safe Queue
 data_queue = queue.Queue()
 
-# Setup MQTT
-mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-mqtt_client.username_pw_set("SSD_Demo", "Bobbycar")
-mqtt_client.connect("127.0.0.1", 1884, 60)
+# Setup Serial and MQTT connections
+ser = get_serial_connection()
+mqtt_client = get_mqtt_connection()
 
 # Read data from Serial (Producer)
 def serial_reader():
@@ -22,7 +43,9 @@ def serial_reader():
             line = ser.readline().decode('utf-8').strip()
             data_queue.put(line)  # Push to queue
         except Exception as e:
-            print("Serial Error:", e)
+            print(f"Serial Error: {e}. Retrying connection...")
+            ser.close()
+            ser = get_serial_connection()  # Reconnect if serial fails
 
 # Send data to MQTT (Consumer)
 def mqtt_sender():
@@ -30,9 +53,10 @@ def mqtt_sender():
         data = data_queue.get()
         try:
             mqtt_client.publish("arduino/imuDaten", data)
-            print(f"{data}")
+            print(f"Sent: {data}")
         except Exception as e:
-            print("MQTT Error:", e)
+            print(f"MQTT Error: {e}. Retrying connection...")
+            mqtt_client = get_mqtt_connection()  # Reconnect if MQTT fails
         data_queue.task_done()
 
 # Start threads
