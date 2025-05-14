@@ -22,77 +22,24 @@ last_save_time = time.time()  # initialize
 SAVE_INTERVAL = 60  # seconds (3 minutes)
 
 # MQTT Callbacks
-def on_connect(client, userdata, flags, rc):
-    print(f"✅ Connected to MQTT Broker with result code {rc}")
+def on_connect(client, userdata, flags, reason_code, properties):
+    print(f"✅ Connected to MQTT Broker with result code {reason_code}")
    # print(f"Subscribing to topic: {MQTT_TOPIC}")
     client.subscribe(MQTT_TOPIC)  # Subscribe to the topic
+
 def on_message(client, userdata, msg):
-    global last_save_time, data_buffer
-    payload = msg.payload.decode("utf-8")
-
-    try:
-        json_data = json.loads(payload)
-        imu_array = json_data.get("imuData", [])
-
-        for sample in imu_array:
-            timestamp = int(sample.get("t", 0))
-            acc = sample.get("acc", {})
-            gyro = sample.get("gyro", {})
-
-            acc_x = float(acc.get("x", 0.0))
-            acc_y = float(acc.get("y", 0.0))
-            acc_z = float(acc.get("z", 0.0))
-            gyro_z = float(gyro.get("z", 0.0))
-
-            imu_data = {
-                "acceleration": {
-                    "x": acc_x,
-                    "y": acc_y,
-                    "z": acc_z
-                },
-                "rotation": {
-                    "z": gyro_z
-                },
-                "timestampMillis": timestamp
-            }
-
-            print(f"📦 IMU Sample: {imu_data}")
-            socketio.emit('imu_update', imu_data)
-
-            with buffer_lock:
-                data_buffer.append([acc_x, acc_y, acc_z, gyro_z, timestamp])
-
-        # Save to CSV periodically
-        now = time.time()
-        if now - last_save_time >= SAVE_INTERVAL:
-            filename = time.strftime("sensor_data_%Y-%m-%d_%H-%M-%S.csv")
-            with open(filename, 'w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(["Acc_X", "Acc_Y", "Acc_Z", "Rot_Z", "Millis"])
-                writer.writerows(data_buffer)
-            print(f"💾 Data saved to {filename}")
-            data_buffer = []
-            last_save_time = now
-
-    except Exception as e:
-        print(f"❌ Failed to parse JSON array from: {payload}")
-        print(f"⚠️ Error: {e}")
     global last_save_time, data_buffer
     #print(f"{msg.topic}: {msg.payload.decode()}")
     payload = msg.payload.decode("utf-8")
     try:
         #print(f" {json_data}")  
         # Example payload: "t:123456; acc:0.12,0.34,0.56; gyro:-0.78"
-        parts = payload.split(";")
-        timestamp = float(parts[0].split(":")[1].strip())
-        
-        acc_values = parts[1].split(":")[1].strip().split(",")
-        acc_x = float(acc_values[0])
-        acc_y = float(acc_values[1])
-        acc_z = float(acc_values[2]) 
-
-        gyro_z = float(parts[2].split(":")[1])
-
+        parts = payload.strip().split(",")
+        acc_x = float(parts[0])
+        acc_y = float(parts[1])
+        acc_z = float(parts[2])
+        gyro_z = float(parts[3])
+        timestamp = int(parts[4])
         imu_data = { 
             "acceleration": {
                 "x": acc_x,
@@ -105,7 +52,7 @@ def on_message(client, userdata, msg):
             "timestampMillis": int(timestamp)
         }
 
-        print(f"IMU Data: {imu_data}"    )
+        print(f"{imu_data}"    )
         # Send data to the frontend via WebSocket
         socketio.emit('imu_update', imu_data) # send to frontend web socket 
 
@@ -130,7 +77,8 @@ def on_message(client, userdata, msg):
         print(f"⚠️ Error: {e}")
 
  # MQTT setup
-mqtt_client = mqtt.Client()
+mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+mqtt_client.username_pw_set("SSD_Demo","Bobbycar")
 mqtt_client.on_connect = on_connect
 mqtt_client.on_message = on_message
 def start_mqtt_client():

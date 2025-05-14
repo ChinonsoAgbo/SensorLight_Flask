@@ -52,7 +52,7 @@ pip install
 
 #### Start the Flask Server
 ```bash
-python app.py
+python appFlask.py
 ```
 
 ### 3. Start the Mosquitto Broker
