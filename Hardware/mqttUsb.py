@@ -22,7 +22,7 @@ def get_mqtt_connection():
     mqtt_client.username_pw_set("SSD_Demo", "Bobbycar")
     while True:
         try:
-            mqtt_client.connect("127.0.0.1", 1884, 60)
+            mqtt_client.connect("localhost", 1884, 60)
             print("MQTT connected")
             return mqtt_client
         except Exception as e:
