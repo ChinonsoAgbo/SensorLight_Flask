@@ -8,8 +8,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import List
 
 # UDP server settings
-UDP_IP = "0.0.0.0"
-UDP_PORT = 1884
+# UDP_IP = "0.0.0.0"
+UDP_IP = "192.168.0.100"
+UDP_PORT = 1881
 
 data_buffer = []
 lock = threading.Lock()
